@@ -4,7 +4,7 @@ A binary audio anti-spoofing system that classifies utterances as bonafide or sp
 
 ---
 
-## Repository layout
+## Repository layout 
 
 ```text
 .
