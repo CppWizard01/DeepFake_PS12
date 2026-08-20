@@ -307,7 +307,7 @@ const AppState = {
       },
 
       canGenerate() {
-        return Boolean(AppState.currentVoiceId) && TextManager.hasText();
+        return Boolean(AppState.health?.model_loaded) && Boolean(AppState.currentVoiceId) && TextManager.hasText();
       },
 
       updateGenerateState() {
@@ -315,7 +315,9 @@ const AppState = {
         const can = this.canGenerate();
         btn.disabled = AppState.isGenerating || !can;
 
-        if (!AppState.currentVoiceId && !TextManager.hasText()) {
+        if (AppState.health && !AppState.health.model_loaded) {
+          btn.title = 'Voice generation is not enabled on this deployment';
+        } else if (!AppState.currentVoiceId && !TextManager.hasText()) {
           btn.title = 'Upload reference voice and provide text first';
         } else if (!AppState.currentVoiceId) {
           btn.title = 'Upload reference voice first';
@@ -500,6 +502,7 @@ const AppState = {
         const pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
 
         document.getElementById('status-model').textContent = h.model_loaded ? 'Loaded' : 'Not loaded';
+        GenerationManager.updateGenerateState();
         document.getElementById('gpu-text').textContent = `${used.toFixed(2)} / ${total.toFixed(2)} MB`;
         document.getElementById('gpu-bar').style.width = `${pct.toFixed(1)}%`;
         document.getElementById('status-uptime').textContent = formatSeconds(Number(h.uptime_seconds || 0));

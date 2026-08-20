@@ -26,7 +26,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from aasist_classifier import AASISTClassifier
-from tts_engine import TTSEngine
+
+try:
+    from tts_engine import TTSEngine
+except Exception as exc:  # pragma: no cover - enables detection-only deployments
+    TTSEngine = None  # type: ignore[assignment]
+    TTS_IMPORT_ERROR = exc
+else:
+    TTS_IMPORT_ERROR = None
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -47,6 +54,7 @@ DEFAULT_TOP_SURROGATE_FEATURES = [
     "delta2_mfcc_10_mean",
 ]
 DEFAULT_XTTS_MODEL_DIR = BASE_DIR.parent / "experiments" / "dl1_xtts_ft" / "speaker2" / "run" / "training" / "GPT_XTTS_FT-April-19-2026_03+30AM-0000000"
+DEFAULT_CHECKPOINT_DIR = BASE_DIR.parent / "models" / "checkpoints"
 
 LOGGER = logging.getLogger("voicelab")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -264,6 +272,10 @@ def _default_xtts_model_path() -> Optional[str]:
     if DEFAULT_XTTS_MODEL_DIR.exists():
         return str(DEFAULT_XTTS_MODEL_DIR)
     return None
+
+
+def _env_flag(name: str, default: str = "auto") -> str:
+    return os.getenv(name, default).strip().lower()
 
 
 def _load_wave_16k(path: Path) -> torch.Tensor:
@@ -495,26 +507,38 @@ async def startup_event() -> None:
     checkpoint_path = os.getenv("XTTS_CHECKPOINT_PATH") or None
     config_path = os.getenv("XTTS_CONFIG_PATH") or None
     vocab_path = os.getenv("XTTS_VOCAB_PATH") or None
+    tts_mode = _env_flag("VOICELAB_ENABLE_TTS", "auto")
+    should_load_tts = tts_mode in {"1", "true", "yes", "on"} or (tts_mode == "auto" and bool(model_path))
     load_t0 = time.perf_counter()
     app.state.model_loaded = False
     app.state.model_error = None
     app.state.tts_engine = None
-    try:
-        app.state.tts_engine = TTSEngine(
-            model_path=model_path,
-            checkpoint_path=checkpoint_path,
-            config_path=config_path,
-            vocab_path=vocab_path,
-        )
-        load_seconds = time.perf_counter() - load_t0
-        used_mb, total_mb = _gpu_memory_stats()
-        app.state.model_loaded = True
-        LOGGER.info("Model loaded in %.2f seconds", load_seconds)
-        LOGGER.info("GPU memory after load: %.2f MB / %.2f MB", used_mb, total_mb)
-    except Exception as exc:
-        load_seconds = time.perf_counter() - load_t0
-        app.state.model_error = str(exc)
-        LOGGER.exception("Model load failed after %.2f seconds", load_seconds)
+    app.state.generation_enabled = False
+    if should_load_tts:
+        if TTSEngine is None:
+            app.state.model_error = f"TTS import failed: {TTS_IMPORT_ERROR}"
+            LOGGER.error(app.state.model_error)
+        else:
+            try:
+                app.state.tts_engine = TTSEngine(
+                    model_path=model_path,
+                    checkpoint_path=checkpoint_path,
+                    config_path=config_path,
+                    vocab_path=vocab_path,
+                )
+                load_seconds = time.perf_counter() - load_t0
+                used_mb, total_mb = _gpu_memory_stats()
+                app.state.model_loaded = True
+                app.state.generation_enabled = True
+                LOGGER.info("TTS model loaded in %.2f seconds", load_seconds)
+                LOGGER.info("GPU memory after TTS load: %.2f MB / %.2f MB", used_mb, total_mb)
+            except Exception as exc:
+                load_seconds = time.perf_counter() - load_t0
+                app.state.model_error = str(exc)
+                LOGGER.exception("TTS model load failed after %.2f seconds", load_seconds)
+    else:
+        app.state.model_error = "TTS disabled; set VOICELAB_ENABLE_TTS=true and XTTS paths to enable generation"
+        LOGGER.info(app.state.model_error)
 
     app.state.classifier_a_loaded = False
     app.state.classifier_b_loaded = False
@@ -523,8 +547,8 @@ async def startup_event() -> None:
     app.state.classifier_a = None
     app.state.classifier_b = None
 
-    classify_ckpt_a = os.getenv("AASIST_CHECKPOINT_PATH", str(BASE_DIR.parent / "ModelA_LA_bestnew.pt"))
-    classify_ckpt_b = os.getenv("AASIST_CHECKPOINT_B_PATH", str(BASE_DIR.parent / "ModelB_PA_bestnew.pt"))
+    classify_ckpt_a = os.getenv("AASIST_CHECKPOINT_PATH", str(DEFAULT_CHECKPOINT_DIR / "ModelA_LA_bestnew.pt"))
+    classify_ckpt_b = os.getenv("AASIST_CHECKPOINT_B_PATH", str(DEFAULT_CHECKPOINT_DIR / "ModelB_PA_bestnew.pt"))
     classify_threshold_a = float(os.getenv("AASIST_THRESHOLD", "0.420"))
     classify_threshold_b = float(os.getenv("AASIST_THRESHOLD_B", "0.118"))
     try:
@@ -723,7 +747,7 @@ async def generate(req: GenerateRequest) -> Dict[str, Any]:
         raise AppError(
             503,
             "Model unavailable",
-            "XTTS model is not loaded on this server",
+            getattr(app.state, "model_error", None) or "XTTS model is not loaded on this server",
             "MODEL_NOT_LOADED",
         )
 
@@ -858,6 +882,7 @@ async def health() -> Dict[str, Any]:
     return {
         "status": "ok",
         "model_loaded": bool(getattr(app.state, "model_loaded", False)),
+        "generation_enabled": bool(getattr(app.state, "generation_enabled", False)),
         "model_error": getattr(app.state, "model_error", None),
         "classifier_loaded": a_loaded and b_loaded,
         "classifier_a_loaded": a_loaded,
