@@ -111,14 +111,22 @@ Estimated CPU latency:
 | A10/A10G 24 GB | Strong choice for full generation plus detection; usually more expensive than T4/L4. |
 | A100 40/80 GB | Overkill for this project unless doing training or high-concurrency inference. |
 
-## Cost Direction
+## Cost Estimates
 
-Current prices vary by provider and date, so exact pricing must be checked before launch. Practical cost ranking is usually:
+Checked on 2026-08-20. Prices can change, so re-check before launch.
 
-1. CPU-only detection demo: cheapest.
-2. Hugging Face Spaces CPU or small container: cheap if detection-only.
-3. T4/L4 GPU Spaces or cloud GPU: moderate cost, good for demo generation.
-4. A10/A100 cloud GPU: expensive, best for training or heavy usage.
+| Option | Estimated Cost | Fit |
+|---|---:|---|
+| Hugging Face Spaces CPU Basic | Free hardware, paid account/plan may be needed for compute Spaces | Detection-only demo. |
+| Hugging Face Spaces CPU Upgrade | $0.03/hr, about $22/month if always running | Better CPU detection demo. |
+| Render Hobby web service | Free tier available, sleeps after inactivity | Low-traffic detection-only demo. |
+| Render always-on small stack example | About $13/month for a Starter web service plus Basic Postgres, before bandwidth/storage growth | Detection plus persistent history. |
+| Hugging Face Spaces T4 small | $0.40/hr, about $292/month if always running | Minimum GPU generation demo. |
+| Hugging Face Spaces L4 | $0.80/hr, about $584/month if always running | Recommended XTTS demo GPU. |
+| Hugging Face Spaces A10G small | $1.00/hr, about $730/month if always running | Strong XTTS demo GPU. |
+| RunPod L4 | From $0.39/hr, about $285/month if always running | Lower-cost GPU worker option. |
+| AWS g4dn.xlarge T4 | About $0.526/hr, about $384/month in us-east-1 | Cloud GPU if AWS is required. |
+| AWS g6.xlarge L4 | About $0.805/hr, about $588/month in us-east-1 | Cloud GPU with L4 class hardware. |
 
 ## Feasibility Conclusion
 
@@ -129,3 +137,14 @@ The cheapest production-ready route is not full XTTS generation on a general web
 3. Store XTTS checkpoints externally, not in Git.
 4. Use a queue for generation to avoid request timeouts and GPU contention.
 
+## Pricing Sources
+
+- Hugging Face Spaces hardware pricing: https://huggingface.co/docs/hub/en/spaces-gpus
+- Render pricing overview and July 2026 small-stack example: https://render.com/articles/how-much-does-cloud-application-hosting-cost-for-small-businesses
+- Render 2026 workspace pricing update: https://render.com/docs/new-workspace-plans
+- RunPod L4 pricing: https://www.runpod.io/gpu-models/l4
+- AWS EC2 price list docs: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-the-aws-price-list-bulk-api-fetching-price-list-files-manually.html
+- AWS On-Demand billing model: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-on-demand-instances.html
+- AWS g4dn.xlarge and g6.xlarge current price aggregators used for quick us-east-1 estimates:
+  - https://www.devzero.io/instances/aws/g4dn.xlarge
+  - https://www.devzero.io/instances/aws/g6.xlarge

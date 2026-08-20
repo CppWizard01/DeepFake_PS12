@@ -106,7 +106,7 @@ Recommendation: best public demo plan if budget is limited.
 
 ### Milestone 1: Detection-Only Production Demo
 
-Use a CPU container on Render, Railway, Hugging Face Spaces CPU, or a cheap VPS.
+Use a CPU container on Render, Railway, Hugging Face Spaces CPU, or a cheap VPS. Based on prices checked on 2026-08-20, this can range from free/sleeping tiers to roughly $13/month for a small always-on Render-style stack, before bandwidth and storage growth.
 
 Production behavior:
 
@@ -124,7 +124,7 @@ Why:
 
 ### Milestone 2: Full Hybrid Demo
 
-Use Hugging Face Spaces GPU or cloud GPU instance for the generation worker.
+Use Hugging Face Spaces GPU or a cloud GPU instance for the generation worker. Current always-on GPU estimates are roughly $292/month for T4 small, $584/month for L4, and $730/month for A10G small on Hugging Face Spaces. RunPod L4 starts around $0.39/hr. AWS g4dn.xlarge T4 is roughly $384/month and AWS g6.xlarge L4 is roughly $588/month in us-east-1.
 
 Production behavior:
 
@@ -166,4 +166,3 @@ flowchart LR
 ## Production Recommendation
 
 Start with detection-only CPU deployment, then add GPU XTTS generation as an async worker. This is the cheapest path that still becomes production-ready without pretending a 5.35 GB per-speaker XTTS checkpoint belongs inside a simple web host.
-
