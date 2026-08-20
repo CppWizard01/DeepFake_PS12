@@ -61,7 +61,7 @@ def main():
     parser.add_argument("--train-manifest", type=str, required=True)
     parser.add_argument("--val-manifest", type=str, required=True)
     parser.add_argument("--output-dir", type=str, required=True)
-    parser.add_argument("--model", type=str, choices=["cnn", "crnn", "specrnet", "rawnet", "audiomamba"], default="cnn")
+    parser.add_argument("--model", type=str, choices=["cnn", "crnn", "specrnet", "rawnet"], default="cnn")
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--num-workers", type=int, default=4)
@@ -87,7 +87,7 @@ def main():
     set_seed(args.seed)
     ensure_dir(args.output_dir)
 
-    use_raw_wave_model = args.model in {"rawnet", "audiomamba"}
+    use_raw_wave_model = args.model == "rawnet"
     augment_enabled = bool(args.augment or use_raw_wave_model)
     balance_enabled = bool(args.balance_data or use_raw_wave_model)
     amp_enabled = bool(args.amp or use_raw_wave_model) and args.device.startswith("cuda")

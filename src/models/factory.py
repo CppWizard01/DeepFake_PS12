@@ -18,9 +18,10 @@ def build_model(model_name: str) -> nn.Module:
     if model_name == "rawnet":
         return RawNet()
     if model_name in {"audiomamba", "audio_mamba", "audio-mamba"}:
-        from src.models.audio_mamba import AudioMamba
-
-        return AudioMamba()
+        raise ValueError(
+            "AudioMamba was referenced in earlier experiments but its implementation "
+            "is not present in the recovered project artifacts."
+        )
     if model_name in {"specrnet", "spec_rnet", "spec-rnet"}:
         return SpecRNet()
     raise ValueError(f"Unsupported model: {model_name}")
